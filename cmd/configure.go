@@ -12,7 +12,7 @@ var configureCmd = &cobra.Command{
 	Short: "Configures the cli",
 	Long:  `Configures the cli`,
 	Run: func(cmd *cobra.Command, args []string) {
-		fmt.Println(profile)
+		fmt.Println(configuration.Profile)
 	},
 }
 var configCmd = configureCmd
