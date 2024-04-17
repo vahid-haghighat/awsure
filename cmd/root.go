@@ -1,27 +1,22 @@
 package cmd
 
 import (
+	"awsure/cmd/internal"
+	"awsure/cmd/types"
 	"os"
 
 	"github.com/spf13/cobra"
 )
 
-type Configuration struct {
-	Profile      string
-	AllProfiles  bool
-	ForceRefresh bool
-	Mode         string
-	NoVerifySSL  bool
-	NoPrompt     bool
-}
+var configuration types.Configuration
 
-var configuration Configuration
-
-// rootCmd represents the base command when called without any subcommands
 var rootCmd = &cobra.Command{
 	Use:   "awsure",
 	Short: "Helps setting aws cli credentials with azure login",
 	Long:  `Helps setting aws cli credentials with azure login`,
+	RunE: func(cmd *cobra.Command, args []string) error {
+		return internal.Login(configuration)
+	},
 }
 
 func Execute() {

@@ -1,8 +1,7 @@
 package cmd
 
 import (
-	"fmt"
-
+	"awsure/cmd/internal"
 	"github.com/spf13/cobra"
 )
 
@@ -11,8 +10,8 @@ var configureCmd = &cobra.Command{
 	Use:   "configure",
 	Short: "Configures the cli",
 	Long:  `Configures the cli`,
-	Run: func(cmd *cobra.Command, args []string) {
-		fmt.Println(configuration.Profile)
+	RunE: func(cmd *cobra.Command, args []string) error {
+		return internal.Configure(configuration)
 	},
 }
 var configCmd = configureCmd
