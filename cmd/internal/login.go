@@ -5,5 +5,5 @@ import (
 )
 
 func Login(configuration types.Configuration) error {
-	return nil
+	configs, err := loadConfigs()
 }

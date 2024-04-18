@@ -10,7 +10,7 @@ import (
 )
 
 func ConfigAll() error {
-	configs, err := loadConfig()
+	configs, err := loadConfigs()
 	if err != nil {
 		if errors.Is(err, fileNotFoundError) {
 			return fmt.Errorf("cannot configure all profiles when no profile is configured")
@@ -71,7 +71,7 @@ func ConfigAll() error {
 }
 
 func ConfigProfile(profile string) error {
-	configs, err := loadConfig()
+	configs, err := loadConfigs()
 	if profile == "" {
 		profile = "default"
 	}
@@ -114,7 +114,7 @@ func ConfigProfile(profile string) error {
 }
 
 func ConfigRemove(profile string) error {
-	configs, err := loadConfig()
+	configs, err := loadConfigs()
 	if err != nil {
 		fmt.Println("There is no configuration file present, so you're probably good to go!")
 		return nil
@@ -131,7 +131,7 @@ func ConfigRemove(profile string) error {
 	return saveConfig(configs)
 }
 
-func loadConfig() (map[string]*configuration, error) {
+func loadConfigs() (map[string]*configuration, error) {
 	_, err := os.Stat(defaultConfigLocation)
 	if os.IsNotExist(err) {
 		return nil, fileNotFoundError
