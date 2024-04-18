@@ -9,15 +9,7 @@ import (
 	"strconv"
 )
 
-func Configure(profile string, allProfiles bool) error {
-	if allProfiles {
-		return configAll()
-	}
-
-	return configProfile(profile)
-}
-
-func configAll() error {
+func ConfigAll() error {
 	configs, err := loadConfig()
 	if err != nil {
 		if errors.Is(err, fileNotFoundError) {
@@ -78,7 +70,7 @@ func configAll() error {
 	return saveConfig(configs)
 }
 
-func configProfile(profile string) error {
+func ConfigProfile(profile string) error {
 	configs, err := loadConfig()
 	if profile == "" {
 		profile = "default"
@@ -117,6 +109,24 @@ func configProfile(profile string) error {
 		fmt.Println("Duration cannot be greater than 12. Setting it to 12")
 		configs[profile].DefaultDurationHours = 12
 	}
+
+	return saveConfig(configs)
+}
+
+func ConfigRemove(profile string) error {
+	configs, err := loadConfig()
+	if err != nil {
+		fmt.Println("There is no configuration file present, so you're probably good to go!")
+		return nil
+	}
+
+	if _, ok := configs[profile]; !ok {
+		fmt.Println("We couldn't find the profile you specified, so you're probably good to go!")
+		return nil
+	}
+
+	delete(configs, profile)
+	fmt.Printf("Removed %s profile\n", profile)
 
 	return saveConfig(configs)
 }
