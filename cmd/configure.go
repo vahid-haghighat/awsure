@@ -11,7 +11,7 @@ var configureCmd = &cobra.Command{
 	Short: "Configures the cli",
 	Long:  `Configures the cli`,
 	RunE: func(cmd *cobra.Command, args []string) error {
-		return internal.Configure(configuration)
+		return internal.Configure("", true)
 	},
 }
 var configCmd = configureCmd
