@@ -107,6 +107,8 @@ func Login(configuration types.Configuration) error {
 	section.Key("aws_access_key_id").SetValue(*stsResult.Credentials.AccessKeyId)
 	section.Key("aws_secret_access_key").SetValue(*stsResult.Credentials.SecretAccessKey)
 	section.Key("aws_session_token").SetValue(*stsResult.Credentials.SessionToken)
+	section.Key("region").SetValue(config.Region)
+	section.Key("output").SetValue("json")
 	section.Key("aws_expiration").SetValue(stsResult.Credentials.Expiration.Format(timeFormat))
 
 	if err = awsCredentials.SaveTo(defaultAwsCredentialsFileLocation); err != nil {
