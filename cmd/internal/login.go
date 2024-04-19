@@ -111,6 +111,7 @@ func Login(configuration types.Configuration) error {
 	if err = awsCredentials.SaveTo(defaultAwsCredentialsFileLocation); err != nil {
 		return err
 	}
+
 	return nil
 }
 
