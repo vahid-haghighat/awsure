@@ -5,9 +5,9 @@ import (
 	"github.com/vahid-haghighat/awsure/cmd/internal"
 )
 
-// configureCmd represents the configure command
-var configureCmd = &cobra.Command{
-	Use:   "configure",
+// configCmd represents the config command
+var configCmd = &cobra.Command{
+	Use:   "config",
 	Short: "Configures the cli",
 	Long:  `Configures the cli`,
 	RunE: func(cmd *cobra.Command, args []string) error {
@@ -30,10 +30,7 @@ var configureCmd = &cobra.Command{
 		return validateProfileAndAllProfileInput(cmd)
 	},
 }
-var configCmd = configureCmd
 
 func init() {
-	configCmd.Use = "config"
-	rootCmd.AddCommand(configureCmd)
 	rootCmd.AddCommand(configCmd)
 }
