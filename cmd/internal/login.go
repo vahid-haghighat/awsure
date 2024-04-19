@@ -112,6 +112,7 @@ func Login(configuration types.Configuration) error {
 		return err
 	}
 
+	fmt.Printf("Credentials expire at: %s\n", stsResult.Credentials.Expiration)
 	return nil
 }
 
