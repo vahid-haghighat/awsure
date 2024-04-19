@@ -34,6 +34,15 @@ func (receiver *Prompter) Prompt(label string, defaultValue string) (string, err
 	return prompt.Run()
 }
 
+func (receiver *Prompter) SensitivePrompt(label string) (string, error) {
+	prompt := promptui.Prompt{
+		Label:     label,
+		Mask:      '*',
+		AllowEdit: false,
+	}
+	return prompt.Run()
+}
+
 func fuzzySearchWithPrefixAnchor(itemsToSelect []string, linePrefix string) func(input string, index int) bool {
 	return func(input string, index int) bool {
 		role := itemsToSelect[index]

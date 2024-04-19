@@ -26,6 +26,7 @@ func ConfigAll() error {
 	azureAppIdUri, err := prompter.Prompt("Azure App Id Uri", "")
 	azureUsername, err := prompter.Prompt("Azure Username", "")
 	oktaUsername, err := prompter.Prompt("Okta Username", "")
+	region, err := prompter.Prompt("Region", "")
 	defaultRoleArn, err := prompter.Prompt("Default Role Arn", "")
 	defaultDurationHours, err := prompter.Prompt("Default Duration (Hour)", "")
 
@@ -46,6 +47,10 @@ func ConfigAll() error {
 
 		if oktaUsername != "" {
 			config.OktaUsername = oktaUsername
+		}
+
+		if region != "" {
+			config.Region = region
 		}
 
 		if defaultRoleArn != "" {
@@ -95,6 +100,7 @@ func ConfigProfile(profile string) error {
 	configs[profile].AzureAppIdUri, err = prompter.Prompt("Azure App Id Uri", configs[profile].AzureAppIdUri)
 	configs[profile].AzureUsername, err = prompter.Prompt("Azure Username", configs[profile].AzureUsername)
 	configs[profile].OktaUsername, err = prompter.Prompt("Okta Username", configs[profile].OktaUsername)
+	configs[profile].Region, err = prompter.Prompt("Region", "")
 	configs[profile].DefaultRoleArn, err = prompter.Prompt("Default Role Arn", configs[profile].DefaultRoleArn)
 	defaultDurationHours, err := prompter.Prompt("Default Duration (Hour)", strconv.Itoa(configs[profile].DefaultDurationHours))
 
@@ -150,7 +156,7 @@ func loadConfigs() (map[string]*configuration, error) {
 func saveConfig(configs map[string]*configuration) error {
 	_, err := os.Stat(defaultConfigLocation)
 	if os.IsNotExist(err) {
-		err = os.MkdirAll(filepath.Dir(defaultConfigLocation), 0700)
+		err = os.MkdirAll(filepath.Dir(defaultConfigLocation), 0755)
 		if err != nil {
 			return err
 		}
@@ -167,5 +173,5 @@ func saveConfig(configs map[string]*configuration) error {
 		return err
 	}
 
-	return os.WriteFile(defaultConfigLocation, content, 0600)
+	return os.WriteFile(defaultConfigLocation, content, 0644)
 }
