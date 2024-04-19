@@ -6,6 +6,7 @@ import (
 	"context"
 	"encoding/base64"
 	"encoding/xml"
+	"errors"
 	"fmt"
 	"github.com/aws/aws-sdk-go-v2/aws"
 	cfg "github.com/aws/aws-sdk-go-v2/config"
@@ -50,17 +51,18 @@ func Login(configuration types.Configuration) error {
 	}
 
 	jumpRoles, err := loadJumpRoleCredentials()
-	if os.IsNotExist(err) {
+	if errors.Is(err, fileNotFoundError) {
 		jumpRoles = make(map[string]*jumpRoleCredentials)
-		jumpRoles[configuration.Profile] = &jumpRoleCredentials{}
+		jumpRoles[config.DefaultJumpRole] = &jumpRoleCredentials{}
 	}
-	jumpRole := jumpRoles[configuration.Profile]
+	jumpRole := jumpRoles[config.DefaultJumpRole]
 	now := time.Now()
 	if jumpRole.AwsExpiration.Before(now) || jumpRole.AwsExpiration.Equal(now) {
 		jumpRole, err = loginToJumpRole(configuration.Profile, config)
 		if err != nil {
 			return err
 		}
+		jumpRoles[config.DefaultJumpRole] = jumpRole
 		err = saveJumpRoleCredentials(jumpRoles)
 		if err != nil {
 			return err
