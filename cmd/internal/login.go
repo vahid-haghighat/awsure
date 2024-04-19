@@ -142,7 +142,7 @@ func getJumpRole(roles []role, config *configuration, err error) (role, error) {
 			if useDefaultRoleIndex == 0 {
 				fmt.Printf("Searching for %s...\n", config.DefaultJumpRole)
 				for _, r := range roles {
-					if strings.Contains(r.roleArn, config.DefaultJumpRole) {
+					if r.roleArn == config.DefaultJumpRole {
 						rl = r
 						break
 					}
