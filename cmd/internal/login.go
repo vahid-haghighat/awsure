@@ -124,26 +124,26 @@ func getJumpRole(roles []role, config *configuration, err error) (role, error) {
 	} else {
 		prompter := Prompter{}
 		if config.DefaultJumpRole != "" {
-			var useDefaultRoleIndex int
-			useDefaultRoleIndex, _, err = prompter.Select(fmt.Sprintf("continue with %s", config.DefaultJumpRole), []string{
-				"Yes",
-				"No",
-			}, nil)
-			if err != nil {
-				return role{}, err
-			}
-			if useDefaultRoleIndex == 0 {
-				fmt.Printf("Searching for %s...\n", config.DefaultJumpRole)
-				for _, r := range roles {
-					if strings.Contains(r.roleArn, config.DefaultJumpRole) {
-						rl = r
-						break
-					}
-				}
-				if (role{} == rl) {
-					fmt.Println("you may need to update the default jump role in your config. we couldn't find any match!")
+			//var useDefaultRoleIndex int
+			//useDefaultRoleIndex, _, err = prompter.Select(fmt.Sprintf("continue with %s", config.DefaultJumpRole), []string{
+			//	"Yes",
+			//	"No",
+			//}, nil)
+			//if err != nil {
+			//	return role{}, err
+			//}
+			//if useDefaultRoleIndex == 0 {
+			fmt.Printf("Searching for %s...\n", config.DefaultJumpRole)
+			for _, r := range roles {
+				if strings.Contains(r.roleArn, config.DefaultJumpRole) {
+					rl = r
+					break
 				}
 			}
+			if (role{} == rl) {
+				fmt.Println("you may need to update the default jump role in your config. we couldn't find any match!")
+			}
+			//	}
 		}
 
 		if (role{} == rl) {
