@@ -55,21 +55,28 @@ func Login(configuration types.Configuration) error {
 		jumpRoles = make(map[string]*jumpRoleCredentials)
 		jumpRoles[config.DefaultJumpRole] = &jumpRoleCredentials{}
 	}
-	jumpRole := jumpRoles[config.DefaultJumpRole]
+	loggedInJumpRole := jumpRoles[config.DefaultJumpRole]
 	now := time.Now()
-	if jumpRole.AwsExpiration.Before(now) || jumpRole.AwsExpiration.Equal(now) {
-		jumpRole, err = loginToJumpRole(configuration.Profile, config)
+	if loggedInJumpRole.AwsExpiration.Before(now) || loggedInJumpRole.AwsExpiration.Equal(now) {
+		var jumpRole *role
+		jumpRole, loggedInJumpRole, err = loginToJumpRole(configuration.Profile, config)
 		if err != nil {
 			return err
 		}
-		jumpRoles[config.DefaultJumpRole] = jumpRole
+		if jumpRole.roleArn != config.DefaultJumpRole {
+			config.DefaultJumpRole = jumpRole.roleArn
+			configs[configuration.Profile] = config
+			_ = saveConfig(configs)
+		}
+		jumpRoles[jumpRole.roleArn] = loggedInJumpRole
 		err = saveJumpRoleCredentials(jumpRoles)
 		if err != nil {
 			return err
 		}
+
 	}
 
-	awsConfig, err := cfg.LoadDefaultConfig(context.Background(), cfg.WithCredentialsProvider(credentials.NewStaticCredentialsProvider(jumpRole.AwsAccessKeyId, jumpRole.AwsSecretAccessKey, jumpRole.AwsSessionToken)))
+	awsConfig, err := cfg.LoadDefaultConfig(context.Background(), cfg.WithCredentialsProvider(credentials.NewStaticCredentialsProvider(loggedInJumpRole.AwsAccessKeyId, loggedInJumpRole.AwsSecretAccessKey, loggedInJumpRole.AwsSessionToken)))
 	if err != nil {
 		return err
 	}
@@ -124,26 +131,26 @@ func getJumpRole(roles []role, config *configuration, err error) (role, error) {
 	} else {
 		prompter := Prompter{}
 		if config.DefaultJumpRole != "" {
-			//var useDefaultRoleIndex int
-			//useDefaultRoleIndex, _, err = prompter.Select(fmt.Sprintf("continue with %s", config.DefaultJumpRole), []string{
-			//	"Yes",
-			//	"No",
-			//}, nil)
-			//if err != nil {
-			//	return role{}, err
-			//}
-			//if useDefaultRoleIndex == 0 {
-			fmt.Printf("Searching for %s...\n", config.DefaultJumpRole)
-			for _, r := range roles {
-				if strings.Contains(r.roleArn, config.DefaultJumpRole) {
-					rl = r
-					break
+			var useDefaultRoleIndex int
+			useDefaultRoleIndex, _, err = prompter.Select(fmt.Sprintf("continue with %s", config.DefaultJumpRole), []string{
+				"Yes",
+				"No",
+			}, nil)
+			if err != nil {
+				return role{}, err
+			}
+			if useDefaultRoleIndex == 0 {
+				fmt.Printf("Searching for %s...\n", config.DefaultJumpRole)
+				for _, r := range roles {
+					if strings.Contains(r.roleArn, config.DefaultJumpRole) {
+						rl = r
+						break
+					}
+				}
+				if (role{} == rl) {
+					fmt.Println("you may need to update the default jump role in your config. we couldn't find any match!")
 				}
 			}
-			if (role{} == rl) {
-				fmt.Println("you may need to update the default jump role in your config. we couldn't find any match!")
-			}
-			//	}
 		}
 
 		if (role{} == rl) {
@@ -315,27 +322,27 @@ func parseRolesFromSamlResponse(assertion string) ([]role, error) {
 	return roles, nil
 }
 
-func loginToJumpRole(profile string, config *configuration) (*jumpRoleCredentials, error) {
+func loginToJumpRole(profile string, config *configuration) (*role, *jumpRoleCredentials, error) {
 	fmt.Printf("Logging in with profile %s\n", profile)
 
 	loginUrl, err := createLoginUrl(config.AzureAppIdUri, config.AzureTenantId, AwsSamlEndpoint)
 	if err != nil {
-		return nil, err
+		return nil, nil, err
 	}
 
 	saml, err := login(loginUrl, config)
 	if err != nil {
-		return nil, err
+		return nil, nil, err
 	}
 
 	roles, err := parseRolesFromSamlResponse(saml)
 	if err != nil {
-		return nil, err
+		return nil, nil, err
 	}
 
 	rl, err := getJumpRole(roles, config, err)
 	if err != nil {
-		return nil, err
+		return nil, nil, err
 	}
 
 	durationSeconds := int32(config.DefaultDurationHours * 3600)
@@ -359,10 +366,10 @@ func loginToJumpRole(profile string, config *configuration) (*jumpRoleCredential
 	jumpRoleClient := sts.NewFromConfig(awsConfig)
 	jumpRoleResult, err := jumpRoleClient.AssumeRoleWithSAML(context.Background(), &jumpRoleStsInput)
 	if err != nil {
-		return nil, err
+		return nil, nil, err
 	}
 
-	return &jumpRoleCredentials{
+	return &rl, &jumpRoleCredentials{
 		AwsAccessKeyId:     *jumpRoleResult.Credentials.AccessKeyId,
 		AwsSecretAccessKey: *jumpRoleResult.Credentials.SecretAccessKey,
 		AwsSessionToken:    *jumpRoleResult.Credentials.SessionToken,
