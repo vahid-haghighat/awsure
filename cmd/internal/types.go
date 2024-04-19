@@ -81,6 +81,18 @@ type configurationFile struct {
 	Configs map[string]*configuration `yaml:"configs"`
 }
 
+type jumpRoleCredentials struct {
+	AwsAccessKeyId     string    `yaml:"aws_access_key_id"`
+	AwsSecretAccessKey string    `yaml:"aws_secret_access_key"`
+	AwsSessionToken    string    `yaml:"aws_session_token"`
+	AwsExpiration      time.Time `yaml:"aws_expiration"`
+}
+
+type jumpRoleCredentialsFile struct {
+	Version     string                          `yaml:"version"`
+	Credentials map[string]*jumpRoleCredentials `yaml:"credentials"`
+}
+
 type state struct {
 	name     string
 	selector string

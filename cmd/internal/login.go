@@ -49,53 +49,25 @@ func Login(configuration types.Configuration) error {
 		return fmt.Errorf("profile %s does not exist", configuration.Profile)
 	}
 
-	fmt.Printf("Logging in with profile %s\n", configuration.Profile)
-
-	loginUrl, err := createLoginUrl(config.AzureAppIdUri, config.AzureTenantId, AwsSamlEndpoint)
-	if err != nil {
-		return err
+	jumpRoles, err := loadJumpRoleCredentials()
+	if os.IsNotExist(err) {
+		jumpRoles = make(map[string]*jumpRoleCredentials)
+		jumpRoles[configuration.Profile] = &jumpRoleCredentials{}
+	}
+	jumpRole := jumpRoles[configuration.Profile]
+	now := time.Now()
+	if jumpRole.AwsExpiration.Before(now) || jumpRole.AwsExpiration.Equal(now) {
+		jumpRole, err = loginToJumpRole(configuration.Profile, config)
+		if err != nil {
+			return err
+		}
+		err = saveJumpRoleCredentials(jumpRoles)
+		if err != nil {
+			return err
+		}
 	}
 
-	saml, err := login(loginUrl, config)
-	if err != nil {
-		return err
-	}
-
-	roles, err := parseRolesFromSamlResponse(saml)
-	if err != nil {
-		return err
-	}
-
-	rl, err := getJumpRole(roles, config, err)
-	if err != nil {
-		return err
-	}
-
-	durationSeconds := int32(config.DefaultDurationHours * 3600)
-
-	jumpRoleStsInput := sts.AssumeRoleWithSAMLInput{
-		PrincipalArn:    &rl.principalArn,
-		RoleArn:         &rl.roleArn,
-		SAMLAssertion:   &saml,
-		DurationSeconds: &durationSeconds,
-	}
-
-	awsConfig, err := cfg.LoadDefaultConfig(context.Background())
-	if err != nil {
-		fmt.Println("Couldn't find the aws config for the specified profile. Creating a new one")
-		awsConfig = *aws.NewConfig()
-	}
-	if awsConfig.Region == "" {
-		awsConfig.Region = config.Region
-	}
-
-	jumpRoleClient := sts.NewFromConfig(awsConfig)
-	jumpRoleResult, err := jumpRoleClient.AssumeRoleWithSAML(context.Background(), &jumpRoleStsInput)
-	if err != nil {
-		return err
-	}
-
-	awsConfig, err = cfg.LoadDefaultConfig(context.Background(), cfg.WithCredentialsProvider(credentials.NewStaticCredentialsProvider(*jumpRoleResult.Credentials.AccessKeyId, *jumpRoleResult.Credentials.SecretAccessKey, *jumpRoleResult.Credentials.SessionToken)))
+	awsConfig, err := cfg.LoadDefaultConfig(context.Background(), cfg.WithCredentialsProvider(credentials.NewStaticCredentialsProvider(jumpRole.AwsAccessKeyId, jumpRole.AwsSecretAccessKey, jumpRole.AwsSessionToken)))
 	if err != nil {
 		return err
 	}
@@ -339,4 +311,59 @@ func parseRolesFromSamlResponse(assertion string) ([]role, error) {
 	}
 
 	return roles, nil
+}
+
+func loginToJumpRole(profile string, config *configuration) (*jumpRoleCredentials, error) {
+	fmt.Printf("Logging in with profile %s\n", profile)
+
+	loginUrl, err := createLoginUrl(config.AzureAppIdUri, config.AzureTenantId, AwsSamlEndpoint)
+	if err != nil {
+		return nil, err
+	}
+
+	saml, err := login(loginUrl, config)
+	if err != nil {
+		return nil, err
+	}
+
+	roles, err := parseRolesFromSamlResponse(saml)
+	if err != nil {
+		return nil, err
+	}
+
+	rl, err := getJumpRole(roles, config, err)
+	if err != nil {
+		return nil, err
+	}
+
+	durationSeconds := int32(config.DefaultDurationHours * 3600)
+
+	jumpRoleStsInput := sts.AssumeRoleWithSAMLInput{
+		PrincipalArn:    &rl.principalArn,
+		RoleArn:         &rl.roleArn,
+		SAMLAssertion:   &saml,
+		DurationSeconds: &durationSeconds,
+	}
+
+	awsConfig, err := cfg.LoadDefaultConfig(context.Background())
+	if err != nil {
+		fmt.Println("Couldn't find the aws config for the specified profile. Creating a new one")
+		awsConfig = *aws.NewConfig()
+	}
+	if awsConfig.Region == "" {
+		awsConfig.Region = config.Region
+	}
+
+	jumpRoleClient := sts.NewFromConfig(awsConfig)
+	jumpRoleResult, err := jumpRoleClient.AssumeRoleWithSAML(context.Background(), &jumpRoleStsInput)
+	if err != nil {
+		return nil, err
+	}
+
+	return &jumpRoleCredentials{
+		AwsAccessKeyId:     *jumpRoleResult.Credentials.AccessKeyId,
+		AwsSecretAccessKey: *jumpRoleResult.Credentials.SecretAccessKey,
+		AwsSessionToken:    *jumpRoleResult.Credentials.SessionToken,
+		AwsExpiration:      *jumpRoleResult.Credentials.Expiration,
+	}, nil
 }

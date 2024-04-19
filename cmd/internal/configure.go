@@ -158,3 +158,42 @@ func askConfig(config configuration, allowEmpty bool) (*configuration, error) {
 
 	return &config, nil
 }
+
+func loadJumpRoleCredentials() (map[string]*jumpRoleCredentials, error) {
+	_, err := os.Stat(defaultJumpRoleCredentialsFileLocation)
+	if os.IsNotExist(err) {
+		return nil, fileNotFoundError
+	}
+
+	content, err := os.ReadFile(defaultJumpRoleCredentialsFileLocation)
+	if err != nil {
+		return nil, err
+	}
+
+	file := jumpRoleCredentialsFile{}
+	err = yaml.Unmarshal(content, &file)
+	return file.Credentials, nil
+}
+
+func saveJumpRoleCredentials(credentials map[string]*jumpRoleCredentials) error {
+	_, err := os.Stat(defaultJumpRoleCredentialsFileLocation)
+	if os.IsNotExist(err) {
+		err = os.MkdirAll(filepath.Dir(defaultJumpRoleCredentialsFileLocation), 0755)
+		if err != nil {
+			return err
+		}
+	} else if err != nil {
+		return err
+	}
+
+	file := jumpRoleCredentialsFile{
+		Version:     configFileVersion,
+		Credentials: credentials,
+	}
+	content, err := yaml.Marshal(file)
+	if err != nil {
+		return err
+	}
+
+	return os.WriteFile(defaultJumpRoleCredentialsFileLocation, content, 0644)
+}

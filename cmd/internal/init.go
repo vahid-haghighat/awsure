@@ -9,6 +9,7 @@ import (
 var homeDir string
 var defaultConfigLocation string
 var defaultAwsCredentialsFileLocation string
+var defaultJumpRoleCredentialsFileLocation string
 var timeFormat string
 
 func init() {
@@ -21,5 +22,6 @@ func init() {
 
 	defaultConfigLocation = filepath.Join(homeDir, ".config", "awsure", "config.yml")
 	defaultAwsCredentialsFileLocation = filepath.Join(homeDir, ".aws", "credentials")
+	defaultJumpRoleCredentialsFileLocation = filepath.Join(homeDir, ".config", "awsure", "jump-role-credentials.yml")
 	timeFormat = time.RFC3339
 }
