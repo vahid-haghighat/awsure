@@ -59,7 +59,11 @@ func Login(configuration types.Configuration) error {
 		return err
 	}
 
-	roles := parseRolesFromSamlResponse(saml)
+	roles, err := parseRolesFromSamlResponse(saml)
+	if err != nil {
+		return err
+	}
+
 	rl, err := getRole(roles, config, err)
 	if err != nil {
 		return err
@@ -253,12 +257,11 @@ func createLoginUrl(appIdUri string, tenantId string, assertionConsumerServiceUR
 	return fmt.Sprintf("https://login.microsoftonline.com/%s/saml2?SAMLRequest=%s", tenantId, url.QueryEscape(samlBase64)), nil
 }
 
-func parseRolesFromSamlResponse(assertion string) []role {
+func parseRolesFromSamlResponse(assertion string) ([]role, error) {
 	b64, err := base64.StdEncoding.DecodeString(assertion)
 
 	if err != nil {
-		fmt.Printf("Fail to parse roles: %v", err)
-		os.Exit(1)
+		return nil, fmt.Errorf("failed to parse roles: %v", err)
 	}
 
 	var roles []role
@@ -267,8 +270,7 @@ func parseRolesFromSamlResponse(assertion string) []role {
 	err = xml.Unmarshal(b64, &sResponse)
 
 	if err != nil {
-		fmt.Printf("Fail to unmarshal roles: %v", err)
-		os.Exit(1)
+		return nil, fmt.Errorf("failed to unmarshal roles: %v", err)
 	}
 
 	for _, attr := range sResponse.Assertion.AttributeStatement.Attributes {
@@ -292,5 +294,5 @@ func parseRolesFromSamlResponse(assertion string) []role {
 		}
 	}
 
-	return roles
+	return roles, nil
 }
