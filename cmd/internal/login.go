@@ -294,16 +294,3 @@ func parseRolesFromSamlResponse(assertion string) []role {
 
 	return roles
 }
-
-func loadAwsCredentialsFile() *ini.File {
-	file, err := ini.Load(defaultAwsCredentialsFileLocation)
-	if err != nil {
-		fmt.Println("Couldn't find the aws credentials file. Creating a new one")
-		err = os.MkdirAll(filepath.Dir(defaultAwsCredentialsFileLocation), 0755)
-		if err != nil {
-			return nil
-		}
-		file = ini.Empty()
-	}
-	return file
-}
