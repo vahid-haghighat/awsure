@@ -65,7 +65,7 @@ func Login(configuration types.Configuration) error {
 		return err
 	}
 
-	rl, err := getRole(roles, config, err)
+	rl, err := getJumpRole(roles, config, err)
 	if err != nil {
 		return err
 	}
@@ -119,7 +119,7 @@ func Login(configuration types.Configuration) error {
 	return nil
 }
 
-func getRole(roles []role, config *configuration, err error) (role, error) {
+func getJumpRole(roles []role, config *configuration, err error) (role, error) {
 	var rl role
 
 	if len(roles) == 0 {
@@ -131,13 +131,10 @@ func getRole(roles []role, config *configuration, err error) (role, error) {
 		prompter := Prompter{}
 		if config.DefaultJumpRole != "" {
 			var useDefaultRoleIndex int
-			useDefaultRoleIndex, _, err = prompter.Select(fmt.Sprintf("you have set %s as the default role. do you want to continue with that?", config.DefaultJumpRole), []string{
+			useDefaultRoleIndex, _, err = prompter.Select(fmt.Sprintf("continue with %s", config.DefaultJumpRole), []string{
 				"Yes",
 				"No",
-			}, fuzzySearchWithPrefixAnchor([]string{
-				"Yes",
-				"No",
-			}, ""))
+			}, nil)
 			if err != nil {
 				return role{}, err
 			}
@@ -150,7 +147,7 @@ func getRole(roles []role, config *configuration, err error) (role, error) {
 					}
 				}
 				if (role{} == rl) {
-					fmt.Println("you may need to update the default role in your configs. we couldn't find any match!")
+					fmt.Println("you may need to update the default jump role in your config. we couldn't find any match!")
 				}
 			}
 		}

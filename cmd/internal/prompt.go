@@ -20,7 +20,7 @@ func (receiver *Prompter) Select(label string, toSelect []string, searcher func(
 		Items:             toSelect,
 		Size:              20,
 		Searcher:          searcher,
-		StartInSearchMode: true,
+		StartInSearchMode: searcher != nil,
 	}
 	return prompt.Run()
 }
