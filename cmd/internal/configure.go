@@ -19,57 +19,15 @@ func ConfigAll() error {
 		}
 	}
 
-	prompter := Prompter{}
-
 	fmt.Println("Leaving any of the following as empty will keep them unchanged on profiles")
-	azureTenantId, err := prompter.Prompt("Azure Tenant Id", "")
-	azureAppIdUri, err := prompter.Prompt("Azure App Id Uri", "")
-	azureUsername, err := prompter.Prompt("Azure Username", "")
-	oktaUsername, err := prompter.Prompt("Okta Username", "")
-	region, err := prompter.Prompt("Region", "")
-	defaultRoleArn, err := prompter.Prompt("Default Role Arn", "")
-	defaultDurationHours, err := prompter.Prompt("Default Duration (Hour)", "")
+	c, err := askConfig(configuration{}, true)
+	if err != nil {
+		return err
+	}
 
 	for profile, config := range configs {
 		fmt.Printf("Updating %s profile\n", profile)
-
-		if azureTenantId != "" {
-			config.AzureTenantId = azureTenantId
-		}
-
-		if azureAppIdUri != "" {
-			config.AzureAppIdUri = azureAppIdUri
-		}
-
-		if azureUsername != "" {
-			config.AzureUsername = azureUsername
-		}
-
-		if oktaUsername != "" {
-			config.OktaUsername = oktaUsername
-		}
-
-		if region != "" {
-			config.Region = region
-		}
-
-		if defaultRoleArn != "" {
-			config.DefaultRoleArn = defaultRoleArn
-		}
-
-		if defaultDurationHours != "" {
-			config.DefaultDurationHours, err = strconv.Atoi(defaultDurationHours)
-			if err != nil {
-				fmt.Println("Not a valid duration was entered. Will set the duration to 1.")
-				config.DefaultDurationHours = 1
-			} else if config.DefaultDurationHours < 1 {
-				fmt.Println("Duration cannot be less than 1. Setting it to 1")
-				config.DefaultDurationHours = 1
-			} else if config.DefaultDurationHours > 12 {
-				fmt.Println("Duration cannot be greater than 12. Setting it to 12")
-				config.DefaultDurationHours = 12
-			}
-		}
+		config.Merge(c)
 	}
 
 	return saveConfig(configs)
@@ -95,28 +53,43 @@ func ConfigProfile(profile string) error {
 		configs[profile] = &configuration{}
 	}
 
-	prompter := Prompter{}
-	configs[profile].AzureTenantId, err = prompter.Prompt("Azure Tenant Id", configs[profile].AzureTenantId)
-	configs[profile].AzureAppIdUri, err = prompter.Prompt("Azure App Id Uri", configs[profile].AzureAppIdUri)
-	configs[profile].AzureUsername, err = prompter.Prompt("Azure Username", configs[profile].AzureUsername)
-	configs[profile].OktaUsername, err = prompter.Prompt("Okta Username", configs[profile].OktaUsername)
-	configs[profile].Region, err = prompter.Prompt("Region", "")
-	configs[profile].DefaultRoleArn, err = prompter.Prompt("Default Role Arn", configs[profile].DefaultRoleArn)
-	defaultDurationHours, err := prompter.Prompt("Default Duration (Hour)", strconv.Itoa(configs[profile].DefaultDurationHours))
-
-	configs[profile].DefaultDurationHours, err = strconv.Atoi(defaultDurationHours)
+	configs[profile], err = askConfig(*configs[profile], false)
 	if err != nil {
-		fmt.Println("Not a valid duration was entered. Will set the duration to 1.")
-		configs[profile].DefaultDurationHours = 1
-	} else if configs[profile].DefaultDurationHours < 1 {
-		fmt.Println("Duration cannot be less than 1. Setting it to 1")
-		configs[profile].DefaultDurationHours = 1
-	} else if configs[profile].DefaultDurationHours > 12 {
-		fmt.Println("Duration cannot be greater than 12. Setting it to 12")
-		configs[profile].DefaultDurationHours = 12
+		return err
 	}
 
 	return saveConfig(configs)
+}
+
+func askConfig(config configuration, allowEmpty bool) (*configuration, error) {
+	prompter := Prompter{}
+
+	var err error
+	config.AzureTenantId, err = prompter.Prompt("Azure Tenant Id", config.AzureTenantId)
+	config.AzureAppIdUri, err = prompter.Prompt("Azure App Id Uri", config.AzureAppIdUri)
+	config.AzureUsername, err = prompter.Prompt("Azure Username", config.AzureUsername)
+	config.OktaUsername, err = prompter.Prompt("Okta Username", config.OktaUsername)
+	config.Region, err = prompter.Prompt("Region", "")
+	config.DefaultJumpRole, err = prompter.Prompt("Default Jump Role", config.DefaultJumpRole)
+	defaultDurationHours, err := prompter.Prompt("Default Duration (Hour)", strconv.Itoa(config.DefaultDurationHours))
+
+	config.DefaultDurationHours, err = strconv.Atoi(defaultDurationHours)
+	if err != nil {
+		if allowEmpty {
+			config.DefaultDurationHours = -1
+		} else {
+			fmt.Println("Not a valid duration was entered. Will set the duration to 1.")
+			config.DefaultDurationHours = 1
+		}
+	} else if config.DefaultDurationHours < 1 {
+		fmt.Println("Duration cannot be less than 1. Setting it to 1")
+		config.DefaultDurationHours = 1
+	} else if config.DefaultDurationHours > 12 {
+		fmt.Println("Duration cannot be greater than 12. Setting it to 12")
+		config.DefaultDurationHours = 12
+	}
+
+	return &config, nil
 }
 
 func ConfigRemove(profile string) error {

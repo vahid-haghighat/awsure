@@ -129,9 +129,9 @@ func getRole(roles []role, config *configuration, err error) (role, error) {
 		rl = roles[0]
 	} else {
 		prompter := Prompter{}
-		if config.DefaultRoleArn != "" {
+		if config.DefaultJumpRole != "" {
 			var useDefaultRoleIndex int
-			useDefaultRoleIndex, _, err = prompter.Select(fmt.Sprintf("you have set %s as the default role. do you want to continue with that?", config.DefaultRoleArn), []string{
+			useDefaultRoleIndex, _, err = prompter.Select(fmt.Sprintf("you have set %s as the default role. do you want to continue with that?", config.DefaultJumpRole), []string{
 				"Yes",
 				"No",
 			}, fuzzySearchWithPrefixAnchor([]string{
@@ -142,9 +142,9 @@ func getRole(roles []role, config *configuration, err error) (role, error) {
 				return role{}, err
 			}
 			if useDefaultRoleIndex == 0 {
-				fmt.Printf("Searching for %s...\n", config.DefaultRoleArn)
+				fmt.Printf("Searching for %s...\n", config.DefaultJumpRole)
 				for _, r := range roles {
-					if strings.Contains(r.roleArn, config.DefaultRoleArn) {
+					if strings.Contains(r.roleArn, config.DefaultJumpRole) {
 						rl = r
 						break
 					}
