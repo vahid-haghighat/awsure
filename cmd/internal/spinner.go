@@ -6,6 +6,8 @@ import (
 )
 
 func spinner(stopChan chan struct{}) {
+	clearLine := "\r\033[K"
+	scannerFrames := `⠋⠙⠹⠸⠼⠴⠦⠧⠇⠏`
 	var stop bool
 	delay := 100 * time.Millisecond
 	go func() {
@@ -15,8 +17,8 @@ func spinner(stopChan chan struct{}) {
 		}
 	}()
 	for !stop {
-		for _, r := range "-\\|/" {
-			fmt.Printf("\r%c ", r)
+		for _, r := range scannerFrames {
+			fmt.Printf("%s%c ", clearLine, r)
 			time.Sleep(delay)
 		}
 	}
