@@ -1,7 +1,6 @@
 package internal
 
 import (
-	"awsure/cmd/types"
 	"bytes"
 	"compress/flate"
 	"context"
@@ -14,6 +13,7 @@ import (
 	"github.com/go-rod/rod"
 	"github.com/go-rod/rod/lib/proto"
 	"github.com/google/uuid"
+	"github.com/vahid-haghighat/awsure/cmd/types"
 	"gopkg.in/ini.v1"
 	"net/url"
 	"os"

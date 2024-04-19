@@ -1,8 +1,8 @@
 package cmd
 
 import (
-	"awsure/cmd/internal"
-	"awsure/cmd/types"
+	"github.com/vahid-haghighat/awsure/cmd/internal"
+	"github.com/vahid-haghighat/awsure/cmd/types"
 	"os"
 
 	"github.com/spf13/cobra"

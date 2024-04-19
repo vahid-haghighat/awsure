@@ -1,6 +1,6 @@
 package main
 
-import "awsure/cmd"
+import "github.com/vahid-haghighat/awsure/cmd"
 
 func main() {
 	cmd.Execute()

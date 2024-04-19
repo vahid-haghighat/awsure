@@ -1,8 +1,8 @@
 package cmd
 
 import (
-	"awsure/cmd/internal"
 	"github.com/spf13/cobra"
+	"github.com/vahid-haghighat/awsure/cmd/internal"
 )
 
 // configureCmd represents the configure command

@@ -1,9 +1,9 @@
 package cmd
 
 import (
-	"awsure/cmd/internal"
 	"fmt"
 	"github.com/spf13/cobra"
+	"github.com/vahid-haghighat/awsure/cmd/internal"
 )
 
 // deleteCmd represents the delete command

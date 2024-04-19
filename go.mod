@@ -1,4 +1,4 @@
-module awsure
+module github.com/vahid-haghighat/awsure
 
 go 1.22
 
