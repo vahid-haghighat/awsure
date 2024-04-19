@@ -21,7 +21,12 @@ var rootCmd = &cobra.Command{
 			fmt.Println(Version)
 			return nil
 		}
-		return internal.Login(configuration)
+
+		if cmd.Flags().Changed("profile") {
+			return internal.Login(configuration)
+		}
+
+		return internal.LoginAll()
 	},
 }
 

@@ -31,7 +31,29 @@ const (
 	AwsSamlEndpoint = "https://signin.aws.amazon.com/saml"
 )
 
+func LoginAll() error {
+	configs, err := loadConfigs()
+	if err != nil {
+		return fmt.Errorf("we couldn't find any config files. please run 'awsure config --profile [PROFILE_NAME]' to configure")
+	}
+
+	var errs []string
+	for profile, _ := range configs {
+		err = Login(types.Configuration{Profile: profile})
+		if err != nil {
+			errs = append(errs, err.Error())
+		}
+	}
+
+	if errs != nil && len(errs) > 0 {
+		return fmt.Errorf("%s", strings.Join(errs, "\n"))
+	}
+	return nil
+}
+
 func Login(configuration types.Configuration) error {
+	fmt.Printf("Logging in with profile %s\n", configuration.Profile)
+
 	configs, err := loadConfigs()
 	if err != nil {
 		fmt.Println("We couldn't find any config files. Let's take care of that first")
@@ -59,7 +81,7 @@ func Login(configuration types.Configuration) error {
 	now := time.Now()
 	if loggedInJumpRole.AwsExpiration.Before(now) || loggedInJumpRole.AwsExpiration.Equal(now) {
 		var jumpRole *role
-		jumpRole, loggedInJumpRole, err = loginToJumpRole(configuration.Profile, config)
+		jumpRole, loggedInJumpRole, err = loginToJumpRole(config)
 		if err != nil {
 			return err
 		}
@@ -116,7 +138,7 @@ func Login(configuration types.Configuration) error {
 		return err
 	}
 
-	fmt.Printf("Credentials expire at: %s\n", awsCredentialsResponse.Credentials.Expiration.Local())
+	fmt.Printf("Credentials expire at: %s\n\n", awsCredentialsResponse.Credentials.Expiration.Local())
 	return nil
 }
 
@@ -322,9 +344,7 @@ func parseRolesFromSamlResponse(assertion string) ([]role, error) {
 	return roles, nil
 }
 
-func loginToJumpRole(profile string, config *configuration) (*role, *jumpRoleCredentials, error) {
-	fmt.Printf("Logging in with profile %s\n", profile)
-
+func loginToJumpRole(config *configuration) (*role, *jumpRoleCredentials, error) {
 	loginUrl, err := createLoginUrl(config.AzureAppIdUri, config.AzureTenantId, AwsSamlEndpoint)
 	if err != nil {
 		return nil, nil, err
