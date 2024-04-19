@@ -23,9 +23,6 @@ var rootCmd = &cobra.Command{
 		}
 		return internal.Login(configuration)
 	},
-	Args: func(cmd *cobra.Command, args []string) error {
-		return validateProfileAndAllProfileInput(cmd)
-	},
 }
 
 func Execute() {
@@ -36,7 +33,6 @@ func Execute() {
 }
 
 func init() {
-	rootCmd.PersistentFlags().StringVarP(&configuration.Profile, "profile", "p", "default", "The name of the profile to log in with or configure (This is mutually exclusive with --all-profiles)")
-	rootCmd.PersistentFlags().BoolVarP(&configuration.AllProfiles, "all-profiles", "a", false, "Log in or configure all profiles (This is mutually exclusive with --profile)")
+	rootCmd.PersistentFlags().StringVarP(&configuration.Profile, "profile", "p", "default", "The name of the profile to log in with or configure")
 	rootCmd.Flags().BoolVarP(&versionFlag, "version", "v", false, "Print the version and exit")
 }
