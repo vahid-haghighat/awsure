@@ -6,6 +6,7 @@ import (
 	"errors"
 	"fmt"
 	"github.com/go-rod/rod"
+	"log"
 	"strings"
 	"time"
 )
@@ -151,7 +152,7 @@ var states = []state{
 			alert, err := pg.Sleeper(rod.NotFoundSleeper).Element(".alert-error")
 
 			if alert != nil && err == nil {
-				fmt.Println(alert.Text())
+				log.Println(alert.Text())
 			}
 
 			prompter := Prompter{}

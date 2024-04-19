@@ -15,6 +15,7 @@ import (
 	"github.com/google/uuid"
 	"github.com/vahid-haghighat/awsure/cmd/types"
 	"gopkg.in/ini.v1"
+	"log"
 	"net/url"
 	"os"
 	"path/filepath"
@@ -262,7 +263,7 @@ func createLoginUrl(appIdUri string, tenantId string, assertionConsumerServiceUR
 	defer func(flateWriter *flate.Writer) {
 		err := flateWriter.Close()
 		if err != nil {
-			fmt.Println(err)
+			log.Println(err)
 		}
 	}(flateWriter)
 
