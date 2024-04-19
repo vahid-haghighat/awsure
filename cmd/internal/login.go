@@ -80,7 +80,7 @@ func Login(configuration types.Configuration) error {
 
 	awsConfig, err := cfg.LoadDefaultConfig(context.Background())
 	if err != nil {
-		fmt.Println("Couldnt find the aws config for the specified profile. Creating a new one")
+		fmt.Println("Couldn't find the aws config for the specified profile. Creating a new one")
 		awsConfig = *aws.NewConfig()
 	}
 	if awsConfig.Region == "" {
@@ -159,7 +159,7 @@ func getRole(roles []role, config *configuration, err error) (role, error) {
 
 			linePrefix := "#"
 			for i, r := range roles {
-				rolesToSelect = append(rolesToSelect, linePrefix+strconv.Itoa(i)+" "+r.roleArn)
+				rolesToSelect = append(rolesToSelect, linePrefix+strconv.Itoa(i+1)+" "+r.roleArn)
 			}
 			label := "Select your role - Hint: fuzzy search supported. To choose one role directly just enter #{Int}"
 
