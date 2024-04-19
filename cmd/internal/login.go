@@ -9,6 +9,7 @@ import (
 	"fmt"
 	"github.com/aws/aws-sdk-go-v2/aws"
 	cfg "github.com/aws/aws-sdk-go-v2/config"
+	"github.com/aws/aws-sdk-go-v2/credentials"
 	"github.com/aws/aws-sdk-go-v2/service/sts"
 	"github.com/go-rod/rod"
 	"github.com/go-rod/rod/lib/proto"
@@ -72,7 +73,7 @@ func Login(configuration types.Configuration) error {
 
 	durationSeconds := int32(config.DefaultDurationHours * 3600)
 
-	stsInput := sts.AssumeRoleWithSAMLInput{
+	jumpRoleStsInput := sts.AssumeRoleWithSAMLInput{
 		PrincipalArn:    &rl.principalArn,
 		RoleArn:         &rl.roleArn,
 		SAMLAssertion:   &saml,
@@ -88,8 +89,27 @@ func Login(configuration types.Configuration) error {
 		awsConfig.Region = config.Region
 	}
 
+	jumpRoleClient := sts.NewFromConfig(awsConfig)
+	jumpRoleResult, err := jumpRoleClient.AssumeRoleWithSAML(context.Background(), &jumpRoleStsInput)
+	if err != nil {
+		return err
+	}
+
+	awsConfig, err = cfg.LoadDefaultConfig(context.Background(), cfg.WithCredentialsProvider(credentials.NewStaticCredentialsProvider(*jumpRoleResult.Credentials.AccessKeyId, *jumpRoleResult.Credentials.SecretAccessKey, *jumpRoleResult.Credentials.SessionToken)))
+	if err != nil {
+		return err
+	}
+	if awsConfig.Region == "" {
+		awsConfig.Region = config.Region
+	}
+
 	stsClient := sts.NewFromConfig(awsConfig)
-	stsResult, err := stsClient.AssumeRoleWithSAML(context.Background(), &stsInput)
+	destinationRoleArn := fmt.Sprintf("arn:aws:iam::%s:role/%s", config.DestinationAccountId, config.DestinationRoleName)
+	stsInput := sts.AssumeRoleInput{
+		RoleArn:         &destinationRoleArn,
+		RoleSessionName: &configuration.Profile,
+	}
+	awsCredentialsResponse, err := stsClient.AssumeRole(context.Background(), &stsInput)
 	if err != nil {
 		return err
 	}
@@ -104,18 +124,18 @@ func Login(configuration types.Configuration) error {
 		awsCredentials = ini.Empty()
 	}
 	section := awsCredentials.Section(configuration.Profile)
-	section.Key("aws_access_key_id").SetValue(*stsResult.Credentials.AccessKeyId)
-	section.Key("aws_secret_access_key").SetValue(*stsResult.Credentials.SecretAccessKey)
-	section.Key("aws_session_token").SetValue(*stsResult.Credentials.SessionToken)
+	section.Key("aws_access_key_id").SetValue(*awsCredentialsResponse.Credentials.AccessKeyId)
+	section.Key("aws_secret_access_key").SetValue(*awsCredentialsResponse.Credentials.SecretAccessKey)
+	section.Key("aws_session_token").SetValue(*awsCredentialsResponse.Credentials.SessionToken)
 	section.Key("region").SetValue(config.Region)
 	section.Key("output").SetValue("json")
-	section.Key("aws_expiration").SetValue(stsResult.Credentials.Expiration.Format(timeFormat))
+	section.Key("aws_expiration").SetValue(awsCredentialsResponse.Credentials.Expiration.Format(timeFormat))
 
 	if err = awsCredentials.SaveTo(defaultAwsCredentialsFileLocation); err != nil {
 		return err
 	}
 
-	fmt.Printf("Credentials expire at: %s\n", stsResult.Credentials.Expiration.Local())
+	fmt.Printf("Credentials expire at: %s\n", awsCredentialsResponse.Credentials.Expiration.Local())
 	return nil
 }
 
