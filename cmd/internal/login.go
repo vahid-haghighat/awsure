@@ -120,23 +120,37 @@ func getRole(roles []role, config *configuration, err error) (role, error) {
 	if len(roles) == 0 {
 		return role{}, fmt.Errorf("you don't have access to any role. please contact your administrator to add you to appropriate groups on Azure")
 	} else if len(roles) == 1 {
-		fmt.Println("you are assigned to one group")
+		fmt.Printf("you are assigned to one group. slecting %s\n", roles[0].roleArn)
 		rl = roles[0]
 	} else {
+		prompter := Prompter{}
 		if config.DefaultRoleArn != "" {
-			for _, r := range roles {
-				if strings.Contains(r.roleArn, config.DefaultRoleArn) {
-					rl = r
-					break
-				}
+			var useDefaultRoleIndex int
+			useDefaultRoleIndex, _, err = prompter.Select(fmt.Sprintf("you have set %s as the default role. do you want to continue with that?", config.DefaultRoleArn), []string{
+				"Yes",
+				"No",
+			}, fuzzySearchWithPrefixAnchor([]string{
+				"Yes",
+				"No",
+			}, ""))
+			if err != nil {
+				return role{}, err
 			}
-			if (role{} == rl) {
-				fmt.Println("you may need to update the default role in your configs. we couldn't find any match!")
+			if useDefaultRoleIndex == 0 {
+				fmt.Printf("Searching for %s...\n", config.DefaultRoleArn)
+				for _, r := range roles {
+					if strings.Contains(r.roleArn, config.DefaultRoleArn) {
+						rl = r
+						break
+					}
+				}
+				if (role{} == rl) {
+					fmt.Println("you may need to update the default role in your configs. we couldn't find any match!")
+				}
 			}
 		}
 
 		if (role{} == rl) {
-			prompter := Prompter{}
 			var rolesToSelect []string
 
 			sort.SliceStable(roles, func(i, j int) bool {
@@ -191,6 +205,9 @@ func login(urlString string, conf *configuration) (string, error) {
 
 	go router.Run()
 
+	stopChan := make(chan struct{})
+	go spinner(stopChan)
+
 	page := browser.MustPage()
 	wait := page.WaitNavigation(proto.PageLifecycleEventNameDOMContentLoaded)
 	page.MustNavigate(urlString)
@@ -203,6 +220,7 @@ Loop:
 			case x, ok := <-samlResponseChan:
 				if ok {
 					samlResult = x
+					stopChan <- struct{}{}
 					break Loop
 				}
 			default:
@@ -211,10 +229,14 @@ Loop:
 			el, err := page.Sleeper(rod.NotFoundSleeper).Element(st.selector)
 
 			if err == nil {
+				stopChan <- struct{}{}
+
 				err = st.handler(page, el, conf)
 				if err != nil {
 					return "", err
 				}
+				stopChan = make(chan struct{})
+				go spinner(stopChan)
 			}
 		}
 	}
