@@ -14,10 +14,22 @@ var exportCmd = &cobra.Command{
 	Short: "Exports config file",
 	Long:  `Exports config file`,
 	RunE: func(cmd *cobra.Command, args []string) error {
+		var err error
+		exportPath, err = absolutePath(exportPath)
+		if err != nil {
+			return err
+		}
+
 		return internal.ConfigExport(exportPath)
 	},
 }
 
 func init() {
+	importCmd.SetHelpFunc(func(command *cobra.Command, strings []string) {
+		hideFlagsExcept(rootCmd)
+		command.Parent().HelpFunc()(command, strings)
+	})
+	exportCmd.Flags().StringVarP(&exportPath, "file", "f", "", "The path to export the config file to")
+	_ = exportCmd.MarkFlagRequired("file")
 	configCmd.AddCommand(exportCmd)
 }

@@ -4,6 +4,8 @@ import (
 	"errors"
 	"fmt"
 	"gopkg.in/yaml.v3"
+	"io"
+	"log"
 	"os"
 	"path/filepath"
 	"strconv"
@@ -80,13 +82,74 @@ func ConfigRemove(profile string) error {
 }
 
 func ConfigImport(importPath string) error {
+	stat, err := os.Stat(importPath)
+	if err != nil {
+		return err
+	}
+
+	if stat.IsDir() {
+		return fmt.Errorf("%s is a directory. please provide a valid config file", importPath)
+	}
+
 	fmt.Println("Not implemented yet")
 	return nil
 }
 
 func ConfigExport(exportPath string) error {
-	fmt.Println("Not implemented yet")
-	return nil
+	stat, err := os.Stat(exportPath)
+	if err != nil {
+		return err
+	}
+
+	if stat.IsDir() {
+		updatedExportPath := filepath.Join(exportPath, "configs.yaml")
+		fmt.Printf("%s is a directory. configs will be stored as %s\n", exportPath, updatedExportPath)
+		exportPath = updatedExportPath
+	}
+
+	_, err = loadConfigs()
+	if err != nil {
+		return err
+	}
+
+	srcStat, err := os.Stat(defaultConfigLocation)
+	if err != nil {
+		return err
+	}
+
+	src, err := os.Open(defaultConfigLocation)
+	if err != nil {
+		return err
+	}
+	defer func(src *os.File) {
+		err = src.Close()
+		if err != nil {
+			log.Fatal(err)
+		}
+	}(src)
+
+	dest, err := os.Create(exportPath)
+	if err != nil {
+		return err
+	}
+	defer func(dest *os.File) {
+		err = dest.Close()
+		if err != nil {
+			log.Fatal(err)
+		}
+	}(dest)
+
+	_, err = io.Copy(dest, src)
+	if err != nil {
+		return err
+	}
+
+	err = dest.Sync()
+	if err != nil {
+		return err
+	}
+
+	return os.Chmod(exportPath, srcStat.Mode())
 }
 
 func loadConfigs() (map[string]*configuration, error) {
