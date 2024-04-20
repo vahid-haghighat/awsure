@@ -91,7 +91,25 @@ func ConfigImport(importPath string) error {
 		return fmt.Errorf("%s is a directory. please provide a valid config file", importPath)
 	}
 
-	fmt.Println("Not implemented yet")
+	_, err = os.Stat(defaultConfigLocation)
+	if err == nil {
+		fmt.Println("Backing up existing config file")
+		err = os.Rename(defaultConfigLocation, fmt.Sprintf("%s.bkp", defaultConfigLocation))
+		if err != nil {
+			return err
+		}
+	}
+
+	configs, err := loadConfigsFrom(importPath)
+	if err != nil {
+		return err
+	}
+
+	err = saveConfig(configs)
+	if err != nil {
+		return err
+	}
+
 	return nil
 }
 
@@ -153,12 +171,16 @@ func ConfigExport(exportPath string) error {
 }
 
 func loadConfigs() (map[string]*configuration, error) {
-	_, err := os.Stat(defaultConfigLocation)
+	return loadConfigsFrom(defaultConfigLocation)
+}
+
+func loadConfigsFrom(path string) (map[string]*configuration, error) {
+	_, err := os.Stat(path)
 	if os.IsNotExist(err) {
 		return nil, fileNotFoundError
 	}
 
-	content, err := os.ReadFile(defaultConfigLocation)
+	content, err := os.ReadFile(path)
 	if err != nil {
 		return nil, err
 	}
