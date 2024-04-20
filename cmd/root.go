@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"github.com/vahid-haghighat/awsure/cmd/internal"
 	"github.com/vahid-haghighat/awsure/cmd/types"
+	"github.com/vahid-haghighat/awsure/version"
 	"os"
 
 	"github.com/spf13/cobra"
@@ -18,7 +19,7 @@ var rootCmd = &cobra.Command{
 	Long:  `Helps setting aws cli credentials with azure login`,
 	RunE: func(cmd *cobra.Command, args []string) error {
 		if versionFlag {
-			fmt.Println(Version)
+			fmt.Println(version.Version)
 			return nil
 		}
 
