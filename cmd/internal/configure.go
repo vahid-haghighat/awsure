@@ -169,6 +169,8 @@ func ConfigExport(exportPath string) error {
 		return err
 	}
 
+	fmt.Println("Config has been exported")
+
 	return os.Chmod(exportPath, srcStat.Mode())
 }
 
