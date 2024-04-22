@@ -110,6 +110,8 @@ func ConfigImport(importPath string) error {
 		return err
 	}
 
+	fmt.Println("Config has been imported")
+
 	return nil
 }
 
