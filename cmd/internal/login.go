@@ -13,6 +13,7 @@ import (
 	"github.com/aws/aws-sdk-go-v2/credentials"
 	"github.com/aws/aws-sdk-go-v2/service/sts"
 	"github.com/go-rod/rod"
+	"github.com/go-rod/rod/lib/launcher"
 	"github.com/go-rod/rod/lib/proto"
 	"github.com/google/uuid"
 	"github.com/vahid-haghighat/awsure/cmd/types"
@@ -29,6 +30,7 @@ import (
 
 const (
 	AwsSamlEndpoint = "https://signin.aws.amazon.com/saml"
+	visibleBrowser  = false
 )
 
 func LoginAll() error {
@@ -39,7 +41,10 @@ func LoginAll() error {
 
 	var errs []string
 	for profile, _ := range configs {
-		err = Login(types.Configuration{Profile: profile})
+		err = Login(types.Configuration{
+			Profile: profile,
+			Visible: visibleBrowser,
+		})
 		if err != nil {
 			errs = append(errs, err.Error())
 		}
@@ -81,7 +86,7 @@ func Login(configuration types.Configuration) error {
 	now := time.Now()
 	if loggedInJumpRole.AwsExpiration.Before(now) || loggedInJumpRole.AwsExpiration.Equal(now) {
 		var jumpRole *role
-		jumpRole, loggedInJumpRole, err = loginToJumpRole(config)
+		jumpRole, loggedInJumpRole, err = loginToJumpRole(config, configuration.Visible)
 		if err != nil {
 			return err
 		}
@@ -200,8 +205,25 @@ func getJumpRole(roles []role, config *configuration, err error) (role, error) {
 	return rl, nil
 }
 
-func login(urlString string, conf *configuration) (string, error) {
-	browser := rod.New().MustConnect()
+func login(urlString string, conf *configuration, visible bool) (string, error) {
+	controlUrl := ""
+	if visible {
+		l := launcher.New().
+			Headless(false).
+			Devtools(true)
+
+		defer l.Cleanup()
+		controlUrl = l.MustLaunch()
+	}
+
+	browser := rod.New()
+
+	if controlUrl != "" {
+		browser = browser.ControlURL(controlUrl)
+	}
+
+	browser = browser.MustConnect()
+
 	defer browser.MustClose()
 
 	router := browser.HijackRequests()
@@ -344,13 +366,13 @@ func parseRolesFromSamlResponse(assertion string) ([]role, error) {
 	return roles, nil
 }
 
-func loginToJumpRole(config *configuration) (*role, *jumpRoleCredentials, error) {
+func loginToJumpRole(config *configuration, visible bool) (*role, *jumpRoleCredentials, error) {
 	loginUrl, err := createLoginUrl(config.AzureAppIdUri, config.AzureTenantId, AwsSamlEndpoint)
 	if err != nil {
 		return nil, nil, err
 	}
 
-	saml, err := login(loginUrl, config)
+	saml, err := login(loginUrl, config, visible)
 	if err != nil {
 		return nil, nil, err
 	}

@@ -400,4 +400,33 @@ var states = []state{
 			return nil
 		},
 	},
+	{
+		name:     "MFA input",
+		selector: `div.challenge-authenticator--google_otp.mfa-verify`,
+		handler: func(pg *rod.Page, el *rod.Element, conf *configuration) error {
+			alert, err := pg.Sleeper(rod.NotFoundSleeper).Element(".alert-error")
+
+			if alert != nil && err == nil {
+				log.Println(alert.Text())
+			}
+
+			prompter := Prompter{}
+			mfa, err := prompter.Prompt("Google Authenticator Code", "")
+			if err != nil {
+				return err
+			}
+
+			el = el.MustElement(`input[name='credentials.passcode']`)
+			el.MustWaitVisible()
+			el.MustSelectAllText().MustInput("")
+			el.MustInput(mfa)
+
+			wait := pg.MustWaitRequestIdle()
+			pg.MustElement("input[type=submit]").MustClick()
+			wait()
+
+			time.Sleep(time.Millisecond * 500)
+			return nil
+		},
+	},
 }
