@@ -235,7 +235,7 @@ var states = []state{
 		},
 	},
 	{
-		name:     "OKTA username/password input",
+		name:     "OKTA username input",
 		selector: `form:not(.o-form-saving) > div span.okta-form-input-field input[name="identifier"]:not([disabled])`,
 		handler: func(pg *rod.Page, el *rod.Element, conf *configuration) error {
 			errorSelector := `div.o-form-error-container`
@@ -270,6 +270,101 @@ var states = []state{
 			el.MustSelectAllText().MustInput("")
 			el.MustInput(username)
 
+			time.Sleep(time.Millisecond * 500)
+
+			submitSelector := `input:not([disabled]):not(.link-button-disabled):not(.btn-disabled)[type=submit]`
+
+			btn, err := pg.Sleeper(rod.NotFoundSleeper).Element(submitSelector)
+			if err == nil {
+				wait := pg.MustWaitRequestIdle()
+				btn.MustClick()
+				wait()
+
+				pContext := pg.GetContext()
+				defer func() {
+					pg.Context(pContext)
+				}()
+
+				ctx, cancel := context.WithCancel(pContext)
+				defer cancel()
+
+				ch := make(chan bool, 1)
+
+				go func() {
+					for {
+						select {
+						case <-ctx.Done():
+							return
+						default:
+							_, err := pg.Sleeper(rod.NotFoundSleeper).Element(submitSelector)
+							if err != nil {
+								ch <- true
+								return
+							}
+						}
+					}
+				}()
+
+				go func() {
+					_, err := pg.Timeout(20 * time.Second).Race().
+						Element(errorSelector + `.o-form-has-errors`).Handle(func(e *rod.Element) error {
+						if e != nil {
+							t, _ := e.Text()
+							if t != "" {
+								return errors.New("error returned")
+							}
+						}
+						return nil
+					}).
+						Element(submitSelector).Handle(func(e *rod.Element) error {
+						return e.WaitInvisible()
+					}).Do()
+					if err != nil {
+						return
+					}
+
+					select {
+					case <-ctx.Done():
+						return
+					default:
+						ch <- true
+						return
+					}
+				}()
+
+				select {
+				case <-ch:
+				case <-time.After(25 * time.Second):
+				}
+			}
+			return nil
+		},
+	},
+	{
+		name:     "OKTA password input",
+		selector: `div.challenge-authenticator--okta_password.mfa-verify-password input[type="password"]:not([disabled])`,
+		//selector: `form:not(.o-form-saving) > div span.o-form-input-name-credentials.passcode input[type="password"]:not([disabled])`,
+		handler: func(pg *rod.Page, el *rod.Element, conf *configuration) error {
+			errorSelector := `div.o-form-error-container`
+			errorContainer, err := pg.Sleeper(rod.NotFoundSleeper).Element(errorSelector)
+
+			if errorContainer != nil && err == nil {
+				t, _ := errorContainer.Text()
+				if t != "" {
+					fmt.Println(t)
+				}
+			}
+
+			infoSelector := `div.o-form-info-container`
+			infoContainer, err := pg.Sleeper(rod.NotFoundSleeper).Element(infoSelector)
+			if infoContainer != nil && err == nil {
+				t, _ := infoContainer.Text()
+				if t != "" {
+					fmt.Println(t)
+				}
+			}
+
+			prompter := Prompter{}
 			password, err := prompter.SensitivePrompt("Okta Password")
 			if err != nil {
 				return err
@@ -277,10 +372,8 @@ var states = []state{
 
 			time.Sleep(time.Millisecond * 500)
 
-			pwdEl := pg.MustElement(`input[type="password"]`)
-			pwdEl.MustWaitVisible()
-			pwdEl.MustSelectAllText().MustInput("")
-			pwdEl.MustInput(password)
+			el.MustWaitVisible()
+			el.MustInput(password)
 
 			time.Sleep(time.Millisecond * 500)
 

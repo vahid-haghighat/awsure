@@ -205,25 +205,10 @@ func getJumpRole(roles []role, config *configuration, err error) (role, error) {
 	return rl, nil
 }
 
-func login(urlString string, conf *configuration, visible bool) (string, error) {
-	controlUrl := ""
-	if visible {
-		l := launcher.New().
-			Headless(false).
-			Devtools(true)
-
-		defer l.Cleanup()
-		controlUrl = l.MustLaunch()
-	}
-
+func loginCli(urlString string, conf *configuration) (string, error) {
 	browser := rod.New()
 
-	if controlUrl != "" {
-		browser = browser.ControlURL(controlUrl)
-	}
-
 	browser = browser.MustConnect()
-
 	defer browser.MustClose()
 
 	router := browser.HijackRequests()
@@ -288,6 +273,76 @@ Loop:
 		}
 	}
 
+	return samlResult, nil
+}
+
+func loginGui(urlString string, conf *configuration) (string, error) {
+	stopChan := make(chan struct{})
+	go spinner(stopChan)
+
+	l := launcher.New().
+		Headless(false).
+		Devtools(false)
+
+	defer l.Cleanup()
+	controlUrl := l.MustLaunch()
+
+	browser := rod.New()
+
+	browser = browser.ControlURL(controlUrl)
+
+	browser = browser.MustConnect()
+	defer browser.MustClose()
+
+	router := browser.HijackRequests()
+	defer router.MustStop()
+
+	samlResponseChan := make(chan string, 1)
+	samlResult := ""
+
+	router.MustAdd("https://*amazon*", func(ctx *rod.Hijack) {
+		reqURL := ctx.Request.URL().String()
+
+		if reqURL == AwsSamlEndpoint {
+			val, err := url.ParseQuery(ctx.Request.Body())
+			if err != nil {
+				fmt.Printf("Fail to saml endpoint response: %v", err)
+				os.Exit(1)
+			}
+
+			samlResponseChan <- val.Get("SAMLResponse")
+
+			err = browser.Close()
+			if err != nil {
+				return
+			}
+		} else {
+			ctx.ContinueRequest(&proto.FetchContinueRequest{})
+		}
+	})
+
+	go router.Run()
+
+	page := browser.MustPage()
+	wait := page.WaitNavigation(proto.PageLifecycleEventNameDOMContentLoaded)
+	page.MustNavigate(urlString)
+	wait()
+
+Loop:
+	for {
+		select {
+		case x, ok := <-samlResponseChan:
+			if ok {
+				samlResult = x
+				stopChan <- struct{}{}
+				break Loop
+			}
+		default:
+		}
+		time.Sleep(100 * time.Millisecond)
+	}
+
+	time.Sleep(1 * time.Second)
 	return samlResult, nil
 }
 
@@ -372,7 +427,7 @@ func loginToJumpRole(config *configuration, visible bool) (*role, *jumpRoleCrede
 		return nil, nil, err
 	}
 
-	saml, err := login(loginUrl, config, visible)
+	saml, err := loginGui(loginUrl, config)
 	if err != nil {
 		return nil, nil, err
 	}
