@@ -427,7 +427,7 @@ func loginToJumpRole(config *configuration, visible bool) (*role, *jumpRoleCrede
 		return nil, nil, err
 	}
 
-	saml, err := loginGui(loginUrl, config)
+	saml, err := loginCli(loginUrl, config)
 	if err != nil {
 		return nil, nil, err
 	}
