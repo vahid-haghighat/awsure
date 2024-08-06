@@ -57,8 +57,6 @@ func LoginAll() error {
 }
 
 func Login(configuration types.Configuration) error {
-	fmt.Printf("Logging in with profile %s\n", configuration.Profile)
-
 	configs, err := loadConfigs()
 	if err != nil {
 		fmt.Println("We couldn't find any config files. Let's take care of that first")
@@ -102,6 +100,8 @@ func Login(configuration types.Configuration) error {
 		}
 
 	}
+
+	fmt.Printf("Logging in with profile %s\n", configuration.Profile)
 
 	awsConfig, err := cfg.LoadDefaultConfig(context.Background(), cfg.WithCredentialsProvider(credentials.NewStaticCredentialsProvider(loggedInJumpRole.AwsAccessKeyId, loggedInJumpRole.AwsSecretAccessKey, loggedInJumpRole.AwsSessionToken)))
 	if err != nil {
@@ -269,6 +269,7 @@ Loop:
 				}
 				stopChan = make(chan struct{})
 				go spinner(stopChan)
+				time.Sleep(time.Millisecond * 500)
 			}
 		}
 	}

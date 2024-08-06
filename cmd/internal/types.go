@@ -257,9 +257,9 @@ var states = []state{
 				}
 			}
 
-			prompter := Prompter{}
 			username := conf.OktaUsername
 			if username == "" {
+				prompter := Prompter{}
 				username, err = prompter.Prompt("Okta Username", username)
 				if err != nil {
 					return err
@@ -343,7 +343,6 @@ var states = []state{
 	{
 		name:     "OKTA password input",
 		selector: `div.challenge-authenticator--okta_password.mfa-verify-password input[type="password"]:not([disabled])`,
-		//selector: `form:not(.o-form-saving) > div span.o-form-input-name-credentials.passcode input[type="password"]:not([disabled])`,
 		handler: func(pg *rod.Page, el *rod.Element, conf *configuration) error {
 			errorSelector := `div.o-form-error-container`
 			errorContainer, err := pg.Sleeper(rod.NotFoundSleeper).Element(errorSelector)
@@ -364,15 +363,14 @@ var states = []state{
 				}
 			}
 
+			el.MustVisible()
+
 			prompter := Prompter{}
 			password, err := prompter.SensitivePrompt("Okta Password")
 			if err != nil {
 				return err
 			}
 
-			time.Sleep(time.Millisecond * 500)
-
-			el.MustWaitVisible()
 			el.MustInput(password)
 
 			time.Sleep(time.Millisecond * 500)
