@@ -7,19 +7,23 @@ import (
 
 func spinner(stopChan chan struct{}) {
 	clearLine := "\r\033[K"
-	scannerFrames := `⠋⠙⠹⠸⠼⠴⠦⠧⠇⠏`
-	var stop bool
+	scannerFrames := []rune(`⠋⠙⠹⠸⠼⠴⠦⠧⠇⠏`)
+	frameCount := len(scannerFrames)
 	delay := 100 * time.Millisecond
-	go func() {
-		_, ok := <-stopChan
-		if ok {
-			stop = true
-		}
-	}()
-	for !stop {
-		for _, r := range scannerFrames {
-			fmt.Printf("%s%c ", clearLine, r)
-			time.Sleep(delay)
+	ticker := time.NewTicker(delay)
+	defer ticker.Stop()
+
+	frameIndex := 0
+	for {
+		select {
+		case <-stopChan:
+			// Clear the line when stopping
+			fmt.Printf("%s", clearLine)
+			return
+		case <-ticker.C:
+			// Print the spinner frame
+			fmt.Printf("%s%c", clearLine, scannerFrames[frameIndex])
+			frameIndex = (frameIndex + 1) % frameCount
 		}
 	}
 }
