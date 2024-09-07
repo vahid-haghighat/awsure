@@ -37,7 +37,7 @@ brews:
       owner: brewdex
       name: homebrew-awsure
       branch: main
-      token: "{{ .Env.BREWDEX_GITHUB_TOKEN }}"
+      token: ${{ secrets.BREWDEX_GITHUB_TOKEN }}
       pull_request:
         enabled: true
         base:
