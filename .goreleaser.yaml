@@ -38,12 +38,6 @@ brews:
       name: homebrew-awsure
       branch: main
       token: "{{ .Env.BREWDEX_GITHUB_TOKEN }}"
-      pull_request:
-        enabled: true
-        base:
-          owner: brewdex
-          name: homebrew-awsure
-          branch: main
 changelog:
   sort: asc
   filters:
