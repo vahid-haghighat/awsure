@@ -28,3 +28,4 @@ jobs:
           args: release --clean
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          BREWDEX_GITHUB_TOKEN: ${{ secrets.BREWDEX_GITHUB_TOKEN }}
