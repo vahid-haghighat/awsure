@@ -1,10 +1,8 @@
-version: 1
-
+version: 2
 before:
   hooks:
     - go mod tidy
     - go generate ./...
-
 builds:
   - env:
       - CGO_ENABLED=0
@@ -12,7 +10,6 @@ builds:
       - linux
       - windows
       - darwin
-
 archives:
   - format: tar.gz
     name_template: >-
@@ -25,7 +22,28 @@ archives:
     format_overrides:
       - goos: windows
         format: zip
-
+brews:
+  - url_template: "https://github.com/vahid-haghighat/awsure/releases/download/{{ .Tag }}/{{ .ArtifactName }}"
+    download_strategy: CurlDownloadStrategy
+    commit_author:
+      name: awsure release bot
+      email: bot@goreleaser.com
+    homepage: "https://github.com/vahid-haghighat/awsure"
+    description: "Helps setting aws cli credentials with azure login"
+    license: "MIT"
+    test: system "#{bin}/awsure --version"
+    install: bin.install "awsure"
+    repository:
+      owner: brewdex
+      name: homebrew-awsure
+      branch: main
+      token: "{{ .Env.BREWDEX_GITHUB_TOKEN }}"
+      pull_request:
+        enabled: true
+        base:
+          owner: brewdex
+          name: homebrew-awsure
+          branch: main
 changelog:
   sort: asc
   filters:
