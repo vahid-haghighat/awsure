@@ -2,6 +2,8 @@ package internal
 
 import (
 	"context"
+	"crypto/sha512"
+	"encoding/hex"
 	"encoding/xml"
 	"errors"
 	"fmt"
@@ -25,6 +27,20 @@ type configuration struct {
 	DestinationRoleName  string `yaml:"destination_role_name"`
 	DefaultDurationHours int    `yaml:"default_duration_hours"`
 	Region               string `yaml:"region"`
+}
+
+func (c *configuration) Hash() string {
+	input := fmt.Sprintf("%s|%s|%s|%s",
+		c.AzureTenantId,
+		c.AzureAppIdUri,
+		c.AzureUsername,
+		c.OktaUsername)
+
+	hash := sha512.New()
+	hash.Write([]byte(input))
+	hashBytes := hash.Sum(nil)
+
+	return hex.EncodeToString(hashBytes)
 }
 
 func (c *configuration) Merge(other *configuration) {

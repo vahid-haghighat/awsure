@@ -16,7 +16,6 @@ import (
 	"github.com/go-rod/rod/lib/launcher"
 	"github.com/go-rod/rod/lib/proto"
 	"github.com/google/uuid"
-	"github.com/vahid-haghighat/awsure/cmd/types"
 	"gopkg.in/ini.v1"
 	"log"
 	"net/url"
@@ -30,7 +29,6 @@ import (
 
 const (
 	AwsSamlEndpoint = "https://signin.aws.amazon.com/saml"
-	visibleBrowser  = false
 )
 
 func LoginAll() error {
@@ -39,12 +37,19 @@ func LoginAll() error {
 		return fmt.Errorf("we couldn't find any config files. please run 'awsure config --profile [PROFILE_NAME]' to configure")
 	}
 
+	samls := make(map[string]string)
+	for _, config := range configs {
+		h := config.Hash()
+		if _, ok := samls[h]; ok {
+			continue
+		}
+
+		samls[h], _ = getSaml(config)
+	}
+
 	var errs []string
 	for profile, _ := range configs {
-		err = Login(types.Configuration{
-			Profile: profile,
-			Visible: visibleBrowser,
-		})
+		err = Login(profile, configs, samls[configs[profile].Hash()])
 		if err != nil {
 			errs = append(errs, err.Error())
 		}
@@ -56,23 +61,38 @@ func LoginAll() error {
 	return nil
 }
 
-func Login(configuration types.Configuration) error {
-	configs, err := loadConfigs()
+func getSaml(config *configuration) (string, error) {
+	loginUrl, err := createLoginUrl(config.AzureAppIdUri, config.AzureTenantId, AwsSamlEndpoint)
 	if err != nil {
-		fmt.Println("We couldn't find any config files. Let's take care of that first")
-		err = ConfigProfile(configuration.Profile)
-		if err != nil {
-			return err
-		}
+		return "", err
+	}
+	saml, err := loginCli(loginUrl, config)
+	if err != nil {
+		return "", err
+	}
+	return saml, nil
+}
+
+func Login(profile string, configs map[string]*configuration, saml string) error {
+	if configs == nil {
+		var err error
 		configs, err = loadConfigs()
 		if err != nil {
-			return err
+			fmt.Println("We couldn't find any config files. Let's take care of that first")
+			err = ConfigProfile(profile)
+			if err != nil {
+				return err
+			}
+			configs, err = loadConfigs()
+			if err != nil {
+				return err
+			}
 		}
 	}
 
-	config, foundConfig := configs[configuration.Profile]
+	config, foundConfig := configs[profile]
 	if !foundConfig {
-		return fmt.Errorf("profile %s does not exist", configuration.Profile)
+		return fmt.Errorf("profile %s does not exist", profile)
 	}
 
 	jumpRoles, err := loadJumpRoleCredentials()
@@ -82,15 +102,22 @@ func Login(configuration types.Configuration) error {
 	}
 	loggedInJumpRole := jumpRoles[config.DefaultJumpRole]
 	now := time.Now()
-	if loggedInJumpRole.AwsExpiration.Before(now) || loggedInJumpRole.AwsExpiration.Equal(now) {
+
+	if saml == "" {
+		saml, err = getSaml(config)
+		if err != nil {
+			return err
+		}
+	}
+	if loggedInJumpRole == nil || loggedInJumpRole.AwsExpiration.Before(now) || loggedInJumpRole.AwsExpiration.Equal(now) {
 		var jumpRole *role
-		jumpRole, loggedInJumpRole, err = loginToJumpRole(config, configuration.Visible)
+		jumpRole, loggedInJumpRole, err = loginToJumpRole(config, saml)
 		if err != nil {
 			return err
 		}
 		if jumpRole.roleArn != config.DefaultJumpRole {
 			config.DefaultJumpRole = jumpRole.roleArn
-			configs[configuration.Profile] = config
+			configs[profile] = config
 			_ = saveConfig(configs)
 		}
 		jumpRoles[jumpRole.roleArn] = loggedInJumpRole
@@ -101,7 +128,7 @@ func Login(configuration types.Configuration) error {
 
 	}
 
-	fmt.Printf("Logging in with profile %s\n", configuration.Profile)
+	fmt.Printf("Logging in with profile %s\n", profile)
 
 	awsConfig, err := cfg.LoadDefaultConfig(context.Background(), cfg.WithCredentialsProvider(credentials.NewStaticCredentialsProvider(loggedInJumpRole.AwsAccessKeyId, loggedInJumpRole.AwsSecretAccessKey, loggedInJumpRole.AwsSessionToken)))
 	if err != nil {
@@ -115,7 +142,7 @@ func Login(configuration types.Configuration) error {
 	destinationRoleArn := fmt.Sprintf("arn:aws:iam::%s:role/%s", config.DestinationAccountId, config.DestinationRoleName)
 	stsInput := sts.AssumeRoleInput{
 		RoleArn:         &destinationRoleArn,
-		RoleSessionName: &configuration.Profile,
+		RoleSessionName: &profile,
 	}
 	awsCredentialsResponse, err := stsClient.AssumeRole(context.Background(), &stsInput)
 	if err != nil {
@@ -131,7 +158,7 @@ func Login(configuration types.Configuration) error {
 		}
 		awsCredentials = ini.Empty()
 	}
-	section := awsCredentials.Section(configuration.Profile)
+	section := awsCredentials.Section(profile)
 	section.Key("aws_access_key_id").SetValue(*awsCredentialsResponse.Credentials.AccessKeyId)
 	section.Key("aws_secret_access_key").SetValue(*awsCredentialsResponse.Credentials.SecretAccessKey)
 	section.Key("aws_session_token").SetValue(*awsCredentialsResponse.Credentials.SessionToken)
@@ -157,29 +184,6 @@ func getJumpRole(roles []role, config *configuration, err error) (role, error) {
 		rl = roles[0]
 	} else {
 		prompter := Prompter{}
-		if config.DefaultJumpRole != "" {
-			var useDefaultRoleIndex int
-			useDefaultRoleIndex, _, err = prompter.Select(fmt.Sprintf("continue with %s", config.DefaultJumpRole), []string{
-				"Yes",
-				"No",
-			}, nil)
-			if err != nil {
-				return role{}, err
-			}
-			if useDefaultRoleIndex == 0 {
-				fmt.Printf("Searching for %s...\n", config.DefaultJumpRole)
-				for _, r := range roles {
-					if r.roleArn == config.DefaultJumpRole {
-						rl = r
-						break
-					}
-				}
-				if (role{} == rl) {
-					fmt.Println("you may need to update the default jump role in your config. we couldn't find any match!")
-				}
-			}
-		}
-
 		if (role{} == rl) {
 			var rolesToSelect []string
 
@@ -422,17 +426,7 @@ func parseRolesFromSamlResponse(assertion string) ([]role, error) {
 	return roles, nil
 }
 
-func loginToJumpRole(config *configuration, visible bool) (*role, *jumpRoleCredentials, error) {
-	loginUrl, err := createLoginUrl(config.AzureAppIdUri, config.AzureTenantId, AwsSamlEndpoint)
-	if err != nil {
-		return nil, nil, err
-	}
-
-	saml, err := loginCli(loginUrl, config)
-	if err != nil {
-		return nil, nil, err
-	}
-
+func loginToJumpRole(config *configuration, saml string) (*role, *jumpRoleCredentials, error) {
 	roles, err := parseRolesFromSamlResponse(saml)
 	if err != nil {
 		return nil, nil, err
