@@ -109,7 +109,7 @@ func Login(profile string, configs map[string]*configuration, saml string) error
 			return err
 		}
 	}
-	if loggedInJumpRole == nil || loggedInJumpRole.AwsExpiration.Before(now) || loggedInJumpRole.AwsExpiration.Equal(now) {
+	if loggedInJumpRole == nil || !loggedInJumpRole.AwsExpiration.After(now) {
 		var jumpRole *role
 		jumpRole, loggedInJumpRole, err = loginToJumpRole(config, saml)
 		if err != nil {
@@ -179,7 +179,18 @@ func getJumpRole(roles []role, config *configuration, err error) (role, error) {
 
 	if len(roles) == 0 {
 		return role{}, fmt.Errorf("you don't have access to any role. please contact your administrator to add you to appropriate groups on Azure")
-	} else if len(roles) == 1 {
+	}
+
+	if config.DefaultJumpRole != "" {
+		for _, r := range roles {
+			if r.roleArn == config.DefaultJumpRole {
+				return r, nil
+			}
+		}
+		fmt.Printf("default jump role %s not found", config.DefaultJumpRole)
+	}
+
+	if len(roles) == 1 {
 		fmt.Printf("you are assigned to one group. slecting %s\n", roles[0].roleArn)
 		rl = roles[0]
 	} else {
@@ -195,7 +206,7 @@ func getJumpRole(roles []role, config *configuration, err error) (role, error) {
 			for i, r := range roles {
 				rolesToSelect = append(rolesToSelect, linePrefix+strconv.Itoa(i+1)+" "+r.roleArn)
 			}
-			label := "Select your role - Hint: fuzzy search supported. To choose one role directly just enter #{Int}"
+			label := fmt.Sprintf("Select your jump role for %s in %s - Hint: fuzzy search supported. To choose one role directly just enter #{Int}", config.DestinationRoleName, config.DestinationAccountId)
 
 			var indexChoice int
 			indexChoice, _, err = prompter.Select(label, rolesToSelect, fuzzySearchWithPrefixAnchor(rolesToSelect, linePrefix))
