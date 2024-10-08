@@ -38,18 +38,30 @@ func LoginAll() error {
 	}
 
 	samls := make(map[string]string)
-	for _, config := range configs {
-		h := config.Hash()
-		if _, ok := samls[h]; ok {
-			continue
-		}
 
-		samls[h], _ = getSaml(config)
+	jumpRoles, err := loadJumpRoleCredentials()
+	now := time.Now()
+	loginToOkta := false
+	for _, j := range jumpRoles {
+		if !j.AwsExpiration.After(now) {
+			loginToOkta = true
+		}
+	}
+	if errors.Is(err, fileNotFoundError) || loginToOkta {
+		for _, config := range configs {
+			h := config.Hash()
+			if _, ok := samls[h]; ok {
+				continue
+			}
+
+			samls[h], _ = getSaml(config)
+		}
 	}
 
 	var errs []string
 	for profile, _ := range configs {
-		err = Login(profile, configs, samls[configs[profile].Hash()])
+		config := configs[profile]
+		err = sharedLogin(profile, jumpRoles[config.DefaultJumpRole], config)
 		if err != nil {
 			errs = append(errs, err.Error())
 		}
@@ -73,7 +85,7 @@ func getSaml(config *configuration) (string, error) {
 	return saml, nil
 }
 
-func Login(profile string, configs map[string]*configuration, saml string) error {
+func Login(profile string, configs map[string]*configuration) error {
 	if configs == nil {
 		var err error
 		configs, err = loadConfigs()
@@ -103,13 +115,13 @@ func Login(profile string, configs map[string]*configuration, saml string) error
 	loggedInJumpRole := jumpRoles[config.DefaultJumpRole]
 	now := time.Now()
 
-	if saml == "" {
+	if loggedInJumpRole == nil || !loggedInJumpRole.AwsExpiration.After(now) {
+		var saml string
 		saml, err = getSaml(config)
 		if err != nil {
 			return err
 		}
-	}
-	if loggedInJumpRole == nil || !loggedInJumpRole.AwsExpiration.After(now) {
+
 		var jumpRole *role
 		jumpRole, loggedInJumpRole, err = loginToJumpRole(config, saml)
 		if err != nil {
@@ -128,6 +140,10 @@ func Login(profile string, configs map[string]*configuration, saml string) error
 
 	}
 
+	return sharedLogin(profile, loggedInJumpRole, config)
+}
+
+func sharedLogin(profile string, loggedInJumpRole *jumpRoleCredentials, config *configuration) error {
 	fmt.Printf("Logging in with profile %s\n", profile)
 
 	awsConfig, err := cfg.LoadDefaultConfig(context.Background(), cfg.WithCredentialsProvider(credentials.NewStaticCredentialsProvider(loggedInJumpRole.AwsAccessKeyId, loggedInJumpRole.AwsSecretAccessKey, loggedInJumpRole.AwsSessionToken)))

@@ -24,7 +24,7 @@ var rootCmd = &cobra.Command{
 		}
 
 		if cmd.Flags().Changed("profile") {
-			return internal.Login(configuration.Profile, nil, "")
+			return internal.Login(configuration.Profile, nil)
 		}
 
 		return internal.LoginAll()
