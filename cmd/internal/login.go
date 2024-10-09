@@ -48,13 +48,31 @@ func LoginAll() error {
 		}
 	}
 	if errors.Is(err, fileNotFoundError) || loginToOkta {
-		for _, config := range configs {
+		for profile, config := range configs {
 			h := config.Hash()
-			if _, ok := samls[h]; ok {
-				continue
+			if _, ok := samls[h]; !ok {
+				samls[h], err = getSaml(config)
+				if err != nil {
+					return err
+				}
 			}
 
-			samls[h], _ = getSaml(config)
+			var jumpRole *role
+			loggedInJumpRole := jumpRoles[config.DefaultJumpRole]
+			jumpRole, loggedInJumpRole, err = loginToJumpRole(config, samls[h])
+			if err != nil {
+				return err
+			}
+			if jumpRole.roleArn != config.DefaultJumpRole {
+				config.DefaultJumpRole = jumpRole.roleArn
+				configs[profile] = config
+				_ = saveConfig(configs)
+			}
+			jumpRoles[jumpRole.roleArn] = loggedInJumpRole
+			err = saveJumpRoleCredentials(jumpRoles)
+			if err != nil {
+				return err
+			}
 		}
 	}
 
@@ -137,7 +155,6 @@ func Login(profile string, configs map[string]*configuration) error {
 		if err != nil {
 			return err
 		}
-
 	}
 
 	return sharedLogin(profile, loggedInJumpRole, config)
