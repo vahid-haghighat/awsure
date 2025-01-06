@@ -12,6 +12,7 @@ import (
 
 var configuration types.Configuration
 var versionFlag bool
+var guiFlag bool
 
 var rootCmd = &cobra.Command{
 	Use:   "awsure",
@@ -24,10 +25,10 @@ var rootCmd = &cobra.Command{
 		}
 
 		if cmd.Flags().Changed("profile") {
-			return internal.Login(configuration.Profile, nil)
+			return internal.Login(configuration.Profile, nil, guiFlag)
 		}
 
-		return internal.LoginAll()
+		return internal.LoginAll(guiFlag)
 	},
 }
 
@@ -40,5 +41,6 @@ func Execute() {
 
 func init() {
 	rootCmd.PersistentFlags().StringVarP(&configuration.Profile, "profile", "p", "default", "The name of the profile to log in with or configure")
+	rootCmd.PersistentFlags().BoolVarP(&guiFlag, "gui", "g", false, "If the browser is shown to the user or not")
 	rootCmd.Flags().BoolVarP(&versionFlag, "version", "v", false, "Print the version and exit")
 }

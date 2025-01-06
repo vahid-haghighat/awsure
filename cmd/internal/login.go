@@ -31,7 +31,7 @@ const (
 	AwsSamlEndpoint = "https://signin.aws.amazon.com/saml"
 )
 
-func LoginAll() error {
+func LoginAll(gui bool) error {
 	configs, err := loadConfigs()
 	if err != nil {
 		return fmt.Errorf("we couldn't find any config files. please run 'awsure config --profile [PROFILE_NAME]' to configure")
@@ -51,7 +51,7 @@ func LoginAll() error {
 		for profile, config := range configs {
 			h := config.Hash()
 			if _, ok := samls[h]; !ok {
-				samls[h], err = getSaml(config)
+				samls[h], err = getSaml(config, gui)
 				if err != nil {
 					return err
 				}
@@ -91,19 +91,24 @@ func LoginAll() error {
 	return nil
 }
 
-func getSaml(config *configuration) (string, error) {
+func getSaml(config *configuration, gui bool) (string, error) {
 	loginUrl, err := createLoginUrl(config.AzureAppIdUri, config.AzureTenantId, AwsSamlEndpoint)
 	if err != nil {
 		return "", err
 	}
-	saml, err := loginCli(loginUrl, config)
+	var saml string
+	if gui {
+		saml, err = loginGui(loginUrl, config)
+	} else {
+		saml, err = loginCli(loginUrl, config)
+	}
 	if err != nil {
 		return "", err
 	}
 	return saml, nil
 }
 
-func Login(profile string, configs map[string]*configuration) error {
+func Login(profile string, configs map[string]*configuration, gui bool) error {
 	if configs == nil {
 		var err error
 		configs, err = loadConfigs()
@@ -135,7 +140,7 @@ func Login(profile string, configs map[string]*configuration) error {
 
 	if loggedInJumpRole == nil || !loggedInJumpRole.AwsExpiration.After(now) {
 		var saml string
-		saml, err = getSaml(config)
+		saml, err = getSaml(config, gui)
 		if err != nil {
 			return err
 		}
@@ -326,20 +331,14 @@ Loop:
 }
 
 func loginGui(urlString string, conf *configuration) (string, error) {
-	stopChan := make(chan struct{})
-	go spinner(stopChan)
-
 	l := launcher.New().
 		Headless(false).
 		Devtools(false)
 
 	defer l.Cleanup()
 	controlUrl := l.MustLaunch()
-
 	browser := rod.New()
-
 	browser = browser.ControlURL(controlUrl)
-
 	browser = browser.MustConnect()
 	defer browser.MustClose()
 
@@ -361,16 +360,16 @@ func loginGui(urlString string, conf *configuration) (string, error) {
 
 			samlResponseChan <- val.Get("SAMLResponse")
 
-			err = browser.Close()
-			if err != nil {
-				return
-			}
+			ctx.Response.Fail(proto.NetworkErrorReasonInternetDisconnected)
 		} else {
 			ctx.ContinueRequest(&proto.FetchContinueRequest{})
 		}
 	})
 
 	go router.Run()
+
+	stopChan := make(chan struct{})
+	go spinner(stopChan)
 
 	page := browser.MustPage()
 	wait := page.WaitNavigation(proto.PageLifecycleEventNameDOMContentLoaded)
